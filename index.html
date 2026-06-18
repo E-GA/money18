@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>วินัยการเงิน 18 เดือน</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+  <div class="modal show" id="setupModal">
+    <div class="modal-box">
+      <div class="card-title"><h2>เชื่อมต่อ Google Sheets</h2><span class="pill">พร้อมโหมดทดลอง</span></div>
+      <p class="small" style="line-height:1.8;margin-bottom:14px">วาง URL ของ Google Apps Script Web App เพื่อให้แอปบันทึกข้อมูลลง Google Sheets ของคุณ หรือกดโหมดทดลองเพื่อทดสอบ UI ก่อน</p>
+      <div class="form">
+        <div class="field"><label>Apps Script Web App URL</label><input id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
+        <button class="btn" onclick="saveScriptUrl()">เชื่อมต่อและสร้างชีตอัตโนมัติ</button>
+        <button class="btn secondary" onclick="startDemo()">ทดลองใช้โดยไม่บันทึกจริง</button>
+      </div>
+      <p class="small" style="margin-top:12px">ตั้งค่า Deploy: Execute as Me และ Who has access: Anyone</p>
+    </div>
+  </div>
+
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><div class="logo">฿</div><div><h1>E-GA Money</h1><p class="small" id="todayText">กำลังโหลดวันที่...</p></div></div>
+      <button class="pill" onclick="openSettings()">⚙️ ตั้งค่า</button>
+    </header>
+
+    <section id="page-dashboard" class="page active">
+      <div class="grid">
+        <div class="stack">
+          <div class="card hero available-card">
+            <div class="card-title"><div><h2>เงินคงเหลือที่ใช้ได้จริงวันนี้</h2><p class="small">ไม่รวมซองล็อกและรายจ่ายประจำ</p></div><span class="pill" id="dailyStatus">🟢 คุมได้</span></div>
+            <div><span class="big-money" id="dailyRemain">0</span> <span class="unit">บาท</span></div>
+            <div class="bar" style="margin:14px 0"><i id="dailyBar"></i></div>
+            <div class="metrics">
+              <div class="metric"><b id="dailySpent">0</b><span>ใช้ไปวันนี้</span></div>
+              <div class="metric"><b id="dailyBudget">310</b><span>โควตาวันนี้</span></div>
+              <div class="metric"><b id="realAvailable">0</b><span>เงินใช้ได้จริงรวม</span></div>
+            </div>
+            <div class="row" style="margin-top:12px"><button class="btn blue" onclick="showPage('add')">+ บันทึกด่วน</button><button class="btn secondary" onclick="dailyClose()">ปิดยอดวันนี้ → ออม</button></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><h2>ซองเงินดิจิทัล</h2><span class="pill">เตือนต่ำกว่า 20%</span></div>
+            <div class="envelopes" id="envelopes"></div>
+          </div>
+        </div>
+
+        <div class="stack">
+          <div class="card">
+            <div class="pet">
+              <div class="pet-face" id="petFace">🐲</div>
+              <div style="flex:1"><h2 id="petName">สัตว์เทพแห่งวินัย</h2><p class="small" id="petMsg">ดูแลเงินให้ดี สัตว์เทพจะเติบโต</p><div class="bar" style="margin-top:10px"><i id="petBar"></i></div></div>
+            </div>
+          </div>
+          <div class="card danger-card">
+            <div class="card-title"><h2>ภารกิจปิดหนี้</h2><span class="pill" id="streakBadge">🔥 0 วัน</span></div>
+            <div><span class="big-money" style="color:var(--yellow)" id="monthsLeft">18</span> <span class="unit">เดือนที่เหลือ</span></div>
+            <div class="bar" style="margin:14px 0"><i id="debtBar" style="background:var(--yellow)"></i></div>
+            <p class="small">เมื่อปิดหนี้ บัตรกดเงินสด 1,600 บาท/เดือน จะกลับมาเป็นกระแสเงินสดของคุณทันที</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><h2>เหตุการณ์ล่าสุด</h2><span class="pill">Log</span></div>
+            <div class="list" id="eventsList"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-add" class="page">
+      <div class="grid">
+        <div class="card">
+          <div class="card-title"><h2>บันทึกรายจ่าย</h2><span class="pill" id="expFormMode">เพิ่มรายการ</span></div>
+          <div class="form">
+            <div class="field"><label>จำนวนเงิน</label><input id="expAmount" type="number" inputmode="decimal" placeholder="0" style="font-size:34px;font-weight:800;text-align:center;color:var(--red)"></div>
+            <div class="quick-grid"><button class="btn secondary" onclick="setAmount(40)">40</button><button class="btn secondary" onclick="setAmount(80)">80</button><button class="btn secondary" onclick="setAmount(100)">100</button><button class="btn secondary" onclick="setAmount(300)">300</button></div>
+            <div class="row"><div class="field"><label>หมวดหมู่</label><select id="expCategory"><option>ค่าอาหาร</option><option>ค่าน้ำมัน</option><option>ความสุข/เที่ยว</option><option>ซื้อของใช้</option><option>อื่นๆ</option></select></div><div class="field"><label>หักจากซอง</label><select id="expEnvelope"></select></div></div>
+            <div class="field"><label>หมายเหตุ</label><input id="expNote" placeholder="เช่น ข้าวเที่ยง / เติมน้ำมัน"></div>
+            <button class="btn" id="submitExpenseBtn" onclick="submitExpense()">💸 บันทึกรายจ่าย</button>
+            <button class="btn secondary" id="cancelEditExpenseBtn" style="display:none" onclick="cancelEditExpense()">ยกเลิกการแก้ไข</button>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card"><div class="card-title"><h2>รายจ่ายล่าสุด</h2></div><div class="list" id="recentList"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-income" class="page">
+      <div class="grid">
+        <div class="card">
+          <div class="card-title"><h2>Income Splitter</h2><span class="pill">แบ่งเงินอัตโนมัติ</span></div>
+          <div class="form">
+            <div class="row"><button class="btn" onclick="addIncome('15')">รับ OT วันที่ 15: 5,200</button><button class="btn blue" onclick="addIncome('end')">รับเงินเดือนสิ้นเดือน</button></div>
+            <p class="small" style="line-height:1.8">รอบวันที่ 15 จะแบ่ง: อาหาร 2,500 | น้ำมัน 1,500 | ฉุกเฉิน 1,200<br>รอบสิ้นเดือนจะล็อกหนี้คงที่ 16,064.34 ก่อน แล้วเติมซองอื่นตามแผน</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><h2>สร้างซองใหม่</h2><span class="pill">Custom</span></div>
+          <div class="form">
+            <div class="field"><label>ชื่อซอง</label><input id="newEnvName" placeholder="เช่น ซองเที่ยวทะเล"></div>
+            <div class="row"><div class="field"><label>งบตั้งต้น</label><input id="newEnvBudget" type="number" placeholder="0"></div><div class="field"><label>ประเภท</label><select id="newEnvGroup"><option value="variable">ผันแปร</option><option value="savings">ออม/สำรอง</option><option value="custom">อื่นๆ</option></select></div></div>
+            <button class="btn" onclick="createEnvelope()">+ สร้างซอง</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-wish" class="page">
+      <div class="grid">
+        <div class="card">
+          <div class="card-title"><h2>กฎ 24 ชั่วโมง</h2><span class="pill">กันช้อปวู่วาม</span></div>
+          <div class="form">
+            <div class="field"><label>ของที่อยากได้</label><input id="wishName" placeholder="เช่น หูฟัง / เสื้อ / Gadget"></div>
+            <div class="field"><label>ราคา</label><input id="wishPrice" type="number" inputmode="decimal" placeholder="0"></div>
+            <button class="btn purple" onclick="addWish()">⏳ เริ่มนับถอยหลัง 24 ชั่วโมง</button>
+          </div>
+        </div>
+        <div class="card"><div class="card-title"><h2>เงินที่อดใจแล้วเซฟได้</h2><span class="pill">🎉</span></div><div><span class="big-money" id="totalSaved">0</span> <span class="unit">บาท</span></div></div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="card-title"><h2>รายการรอตัดสินใจ</h2></div><div class="list" id="wishList"></div></div>
+    </section>
+
+    <section id="page-debt" class="page">
+      <div class="grid">
+        <div class="card danger-card">
+          <div class="card-title"><h2>18-Month Debt Countdown</h2><span class="pill">ห้ามกดเพิ่ม</span></div>
+          <div><span class="big-money" style="color:var(--yellow)" id="monthsLeft2">18</span> <span class="unit">เดือน</span></div>
+          <div class="bar" style="margin:14px 0"><i id="debtBar2" style="background:var(--yellow)"></i></div>
+          <div class="debt-dots" id="debtDots"></div>
+          <div class="row" style="margin-top:14px">
+            <button class="btn yellow" onclick="payDebt()">✅ บันทึกจ่ายหนี้เดือนนี้ 1,600</button>
+            <button class="btn secondary" onclick="resetDebtPlan()">รีเซ็ตแผนหนี้</button>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-title"><h2>จ่ายหนี้ประจำเดือน</h2><span class="pill">รวม 13,589.34 บาท</span></div>
+            <div class="list">
+              <div class="item expense-item">
+                <div><strong>หนี้งวดรถ</strong><em>ค่างวดรถ</em></div>
+                <div class="expense-controls"><div class="amount-red">7,375 ฿</div><button class="mini no" onclick="payFixedDebt('car')">บันทึกจ่าย</button></div>
+              </div>
+              <div class="item expense-item">
+                <div><strong>หนี้ออมสิน</strong><em>กู้ออมสิน</em></div>
+                <div class="expense-controls"><div class="amount-red">6,214.34 ฿</div><button class="mini no" onclick="payFixedDebt('gsb')">บันทึกจ่าย</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="card"><div class="card-title"><h2>แรงจูงใจ</h2></div><p class="small" style="line-height:1.8">ทุกเดือนที่จ่ายครบ = สัตว์เทพวิวัฒนาการ + Streak เพิ่ม 30 วัน<br>เมื่อหมดหนี้ เงินใช้ได้จะเพิ่มขึ้นประมาณ <b style="color:var(--green)">+1,600 บาท/เดือน</b></p></div>
+          <div class="card"><div class="card-title"><h2>โล่เกียรติยศ</h2></div><div class="badges" id="badges"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-save" class="page">
+      <div class="grid">
+        <div class="card">
+          <div class="card-title"><h2>เงินฉุกเฉิน</h2><span class="pill">เป้าหมาย 10,000 → 30,000</span></div>
+          <div><span class="big-money" id="emergencyMoney">0</span> <span class="unit">บาท</span></div>
+          <div class="bar" style="margin:14px 0"><i id="emergencyBar"></i></div>
+          <div class="badges"><span class="badge2" id="badgeSurvive">🥉 ผู้รอดชีวิตขั้นต้น</span><span class="badge2" id="badgeFortress">🏰 ป้อมปราการการเงิน</span></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><h2>กองทุนดูแลรถ</h2><span class="pill">500/เดือน</span></div>
+          <div><span class="big-money" style="color:var(--blue)" id="carMoney">0</span> <span class="unit">บาท</span></div>
+          <div class="bar" style="margin:14px 0"><i id="carBar" style="background:var(--blue)"></i></div>
+          <p class="small">ครบปีจะได้ 6,000 บาท สำหรับยาง น้ำมันเครื่อง หรือซ่อมบำรุง</p>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <div class="card-title"><h2>อัปเดตยอดเงินสำรองจริง</h2></div>
+        <div class="form"><div class="row"><div class="field"><label>เงินฉุกเฉิน</label><input id="inputEmergency" type="number"></div><div class="field"><label>กองทุนรถ</label><input id="inputCar" type="number"></div></div><button class="btn" onclick="saveSavings()">บันทึกยอด</button></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabs"><div class="tabs-inner">
+    <button class="tab active" data-page="dashboard" onclick="showPage('dashboard')"><b>🏠</b>หน้าแรก</button>
+    <button class="tab" data-page="add" onclick="showPage('add')"><b>➕</b>จ่าย</button>
+    <button class="tab" data-page="income" onclick="showPage('income')"><b>💰</b>รายรับ</button>
+    <button class="tab" data-page="wish" onclick="showPage('wish')"><b>🛒</b>24 ชม.</button>
+    <button class="tab" data-page="debt" onclick="showPage('debt')"><b>💳</b>หนี้</button>
+    <button class="tab" data-page="save" onclick="showPage('save')"><b>🏦</b>ออม</button>
+  </div></nav>
+
+  <div class="modal" id="settingsModal"><div class="modal-box">
+    <div class="card-title"><h2>ตั้งค่าแอป</h2><button class="mini wait" onclick="closeSettings()">ปิด</button></div>
+    <div class="form">
+      <div class="row"><div class="field"><label>งบรายวัน</label><input id="setDailyBudget" type="number"></div><div class="field"><label>เวลาแจ้งเตือนเช้า</label><input id="setDailyHour" type="number" min="0" max="23"></div></div>
+      <div class="row"><div class="field"><label>ชื่อเพื่อนคู่คิด</label><input id="setPartnerName" placeholder="เช่น แม่ / แฟน"></div><div class="field"><label>ช่องทางติดต่อ</label><input id="setPartnerContact" placeholder="LINE / เบอร์ / อีเมล"></div></div>
+      <button class="btn" onclick="saveAppSettings()">บันทึกตั้งค่า</button>
+      <button class="btn secondary" onclick="resetMonth()">รีเซ็ตยอดใช้ทุกซองสำหรับเดือนใหม่</button>
+      <button class="btn red" onclick="resetAllData()">รีเซ็ตข้อมูลทั้งหมดเพื่อเริ่มใช้งานจริง</button>
+      <button class="btn secondary" onclick="clearLocalConfig()">ล้าง URL เครื่องนี้</button>
+    </div>
+  </div></div>
+
+<script src="app.js"></script>
+</body>
+</html>
