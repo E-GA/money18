@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>บัญชีรายรับ-รายจ่าย E-ga</title>
+  <title>วินัยการเงิน 18 เดือน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -58,11 +58,14 @@
               <div style="flex:1"><h2 id="petName">สัตว์เทพแห่งวินัย</h2><p class="small" id="petMsg">ดูแลเงินให้ดี สัตว์เทพจะเติบโต</p><div class="bar" style="margin-top:10px"><i id="petBar"></i></div></div>
             </div>
           </div>
-          <div class="card danger-card">
-            <div class="card-title"><h2>ภารกิจปิดหนี้</h2><span class="pill" id="streakBadge">🔥 0 วัน</span></div>
-            <div><span class="big-money" style="color:var(--yellow)" id="monthsLeft">18</span> <span class="unit">เดือนที่เหลือ</span></div>
-            <div class="bar" style="margin:14px 0"><i id="debtBar" style="background:var(--yellow)"></i></div>
-            <p class="small">เมื่อปิดหนี้ บัตรกดเงินสด 1,600 บาท/เดือน จะกลับมาเป็นกระแสเงินสดของคุณทันที</p>
+          <div class="card">
+            <div class="card-title"><h2>รวมเงินที่ใช้ไปทั้งหมด</h2><span class="pill">ทุกซอง</span></div>
+            <div class="metrics">
+              <div class="metric"><b class="amount-red" id="totalSpentToday">0</b><span>วันนี้</span></div>
+              <div class="metric"><b class="amount-red" id="totalSpentMonth">0</b><span>เดือนนี้</span></div>
+              <div class="metric"><b class="amount-red" id="totalSpentAll">0</b><span>สะสมทั้งหมด</span></div>
+            </div>
+            <p class="small" style="line-height:1.8;margin-top:12px">นับรวมรายจ่ายทุกซอง รวมรายการหนี้ที่บันทึกจ่ายแล้ว</p>
           </div>
           <div class="card">
             <div class="card-title"><h2>เหตุการณ์ล่าสุด</h2><span class="pill">Log</span></div>
