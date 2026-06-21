@@ -9,6 +9,9 @@ const DEMO_DATA = () => ({
   today:new Date().toISOString().slice(0,10),
   todaySpent:120,
   todayBudget:310,
+  totalSpentToday:120,
+  totalSpentMonth:1270,
+  totalSpentAll:1270,
   envelopes:[
     {name:'กู้ออมสิน',group:'fixed',budget:6214.34,spent:0,remaining:6214.34,percent:0,locked:true,color:'#ef4444',low:false},
     {name:'ค่างวดรถ',group:'fixed',budget:7375,spent:0,remaining:7375,percent:0,locked:true,color:'#ef4444',low:false},
@@ -37,6 +40,9 @@ const FIXED_DEBTS = {
 function FRESH_DATA(){
   const data=DEMO_DATA();
   data.todaySpent=0;
+  data.totalSpentToday=0;
+  data.totalSpentMonth=0;
+  data.totalSpentAll=0;
   data.recentExpenses=[];
   data.wishes=[];
   data.debtHistory=[];
@@ -55,6 +61,22 @@ window.addEventListener('load', () => {
 function hideSetup(){ document.getElementById('setupModal').classList.remove('show'); }
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(window.toastTimer); window.toastTimer=setTimeout(()=>t.classList.remove('show'),2800); }
 function fmt(n){ return Number(n||0).toLocaleString('th-TH'); }
+function demoExpenseCountsTowardDailyQuota(envelope,source='manual'){
+  if(source==='debt')return false;
+  const env=DATA.envelopes.find(e=>e.name===envelope);
+  if(!env)return true;
+  if(env.locked)return false;
+  return env.group!=='fixed'&&env.group!=='savings';
+}
+function applyDemoExpenseTotalDelta(amount,envelope,source='manual'){
+  const delta=Number(amount||0);
+  if(demoExpenseCountsTowardDailyQuota(envelope,source)){
+    DATA.todaySpent=Math.max(0,Number(DATA.todaySpent||0)+delta);
+  }
+  DATA.totalSpentToday=Math.max(0,Number(DATA.totalSpentToday||0)+delta);
+  DATA.totalSpentMonth=Math.max(0,Number(DATA.totalSpentMonth||0)+delta);
+  DATA.totalSpentAll=Math.max(0,Number(DATA.totalSpentAll||0)+delta);
+}
 
 async function api(payload){
   if (DEMO) return {success:true};
@@ -80,12 +102,13 @@ function renderDashboard(){
   const spent=Number(DATA.todaySpent||0), budget=Number(DATA.todayBudget||310), remain=Math.max(0,budget-spent), pct=budget?Math.max(0,Math.min(100,remain/budget*100)):0;
   const usable = DATA.envelopes.filter(e=>!e.locked && !['savings'].includes(e.group)).reduce((s,e)=>s+Number(e.remaining||0),0);
   document.getElementById('dailyRemain').textContent=fmt(remain); document.getElementById('dailySpent').textContent=fmt(spent); document.getElementById('dailyBudget').textContent=fmt(budget); document.getElementById('realAvailable').textContent=fmt(usable);
+  document.getElementById('totalSpentToday').textContent=fmt(DATA.totalSpentToday??spent);
+  document.getElementById('totalSpentMonth').textContent=fmt(DATA.totalSpentMonth??DATA.totalSpentToday??spent);
+  document.getElementById('totalSpentAll').textContent=fmt(DATA.totalSpentAll??DATA.totalSpentMonth??DATA.totalSpentToday??spent);
   const bar=document.getElementById('dailyBar'); bar.style.width=pct+'%'; bar.style.background=pct>50?'var(--green)':pct>20?'var(--yellow)':'var(--red)';
   const status=document.getElementById('dailyStatus'); status.textContent = remain<=0?'🔴 โควตาหมด':pct<=20?'🟠 ใกล้หมด':'🟢 คุมได้';
   const health=Number(DATA.settings.petHealth||100); const stages=[['🥚','ไข่แห่งความหวัง','เริ่มต้นใหม่ได้เสมอ'],['🐣','ลูกนกวินัย','ต้องดูแลมากขึ้น'],['🐲','มังกรทองแห่งวินัย','ยังแข็งแรงดี คุมงบต่อไป'],['🔥🐲','มังกรไฟแห่งความมั่งคั่ง','วินัยสุดยอดมาก']];
   const idx=health>=90?3:health>=65?2:health>=35?1:0; document.getElementById('petFace').textContent=stages[idx][0]; document.getElementById('petName').textContent=stages[idx][1]; document.getElementById('petMsg').textContent=health<35?'สัตว์เทพเริ่มป่วย เพราะใช้เงินเกินแผน':stages[idx][2]; document.getElementById('petBar').style.width=health+'%';
-  document.getElementById('streakBadge').textContent='🔥 '+fmt(DATA.settings.streakDays||0)+' วัน';
-  document.getElementById('monthsLeft').textContent=fmt(DATA.settings.debtMonthsLeft||18); const paid=(DATA.settings.debtTargetMonths||18)-(DATA.settings.debtMonthsLeft||18); document.getElementById('debtBar').style.width=Math.max(0,Math.min(100,paid/(DATA.settings.debtTargetMonths||18)*100))+'%';
 }
 function renderEnvelopes(){
   document.getElementById('envelopes').innerHTML = DATA.envelopes.map(e=>{
@@ -94,7 +117,16 @@ function renderEnvelopes(){
     return `<div class="${cls}" style="--c:${e.color||'#23d18b'}" onclick="${e.locked?'showToast(\'ซองนี้ถูกล็อกเพื่อกันนำไปใช้ก่อนกำหนด\')':`pickEnvelope('${escapeHtml(e.name)}')`}"><div class="env-name">${label}${escapeHtml(e.name)} · ${status}</div><div class="env-amt">${fmt(e.remaining)} ฿</div><div class="bar"><i style="width:${Math.min(100,e.percent||0)}%;background:${e.percent>85?'var(--red)':e.percent>65?'var(--yellow)':'var(--green)'}"></i></div><div class="env-foot"><span>งบ ${fmt(e.budget)}</span><span>ใช้ ${fmt(e.spent)}</span></div></div>`;
   }).join('');
 }
-function renderSelects(){ const usable=DATA.envelopes.filter(e=>!e.locked).map(e=>`<option>${escapeHtml(e.name)}</option>`).join(''); document.getElementById('expEnvelope').innerHTML=usable; }
+function renderSelects(){
+  const usable=DATA.envelopes.filter(e=>!e.locked);
+  const daily=usable.find(e=>e.group==='daily'||e.name==='ซองรายวัน');
+  const ordered=daily?[daily,...usable.filter(e=>e!==daily)]:usable;
+  const select=document.getElementById('expEnvelope');
+  const current=select.value;
+  select.innerHTML=ordered.map(e=>`<option>${escapeHtml(e.name)}</option>`).join('');
+  if(EDITING_EXPENSE_ID&&current)select.value=current;
+  else if(daily)select.value=daily.name;
+}
 function renderRecent(){ document.getElementById('recentList').innerHTML = (DATA.recentExpenses||[]).length ? DATA.recentExpenses.map(e=>{ const editable=!e.source||e.source==='manual', id=escapeJsArg(e.id); return `<div class="item expense-item"><div><strong>${escapeHtml(e.note||e.category||'รายจ่าย')}</strong><em>${escapeHtml(e.envelope||'')} · ${escapeHtml(e.category||'')}</em></div><div class="expense-controls"><div class="amount-red">-${fmt(e.amount)} ฿</div>${editable?`<div class="wish-actions"><button class="mini wait" onclick="editExpense('${id}')">แก้ไข</button><button class="mini no" onclick="deleteExpense('${id}')">ลบ</button></div>`:`<em>รายการอัตโนมัติ</em>`}</div></div>`; }).join('') : '<p class="small">ยังไม่มีรายการ</p>'; }
 function renderEvents(){ document.getElementById('eventsList').innerHTML = (DATA.events||[]).length ? DATA.events.map(e=>`<div class="item"><div><strong>${escapeHtml(e.message||'เหตุการณ์')}</strong><em>${fmt(e.amount)} บาท</em></div></div>`).join('') : '<p class="small">ยังไม่มีเหตุการณ์</p>'; }
 function renderWishes(){
@@ -158,7 +190,7 @@ async function deleteExpense(id){
   if(!confirm('ลบรายจ่ายรายการนี้?'))return;
   if(DEMO){
     applyDemoEnvelopeDelta(item.envelope,-Number(item.amount||0));
-    DATA.todaySpent=Math.max(0,Number(DATA.todaySpent||0)-Number(item.amount||0));
+    applyDemoExpenseTotalDelta(-Number(item.amount||0),item.envelope,item.source||'manual');
     DATA.recentExpenses=DATA.recentExpenses.filter(e=>e.id!==id);
     if(EDITING_EXPENSE_ID===id)clearExpenseForm();
     renderAll();
@@ -182,13 +214,14 @@ async function submitExpense(){
       const item=DATA.recentExpenses.find(e=>e.id===EDITING_EXPENSE_ID);
       if(!item)return showToast('ไม่พบรายการที่จะแก้ไข');
       applyDemoEnvelopeDelta(item.envelope,-Number(item.amount||0));
+      applyDemoExpenseTotalDelta(-Number(item.amount||0),item.envelope,item.source||'manual');
       applyDemoEnvelopeDelta(envelope,amount);
-      DATA.todaySpent+=amount-Number(item.amount||0);
+      applyDemoExpenseTotalDelta(amount,envelope,'manual');
       Object.assign(item,{amount,category,envelope,note});
       showToast('แก้ไขรายการแล้ว (โหมดทดลอง)');
     } else {
       applyDemoEnvelopeDelta(envelope,amount);
-      DATA.todaySpent+=amount;
+      applyDemoExpenseTotalDelta(amount,envelope,'manual');
       DATA.recentExpenses.unshift({id:'demo_exp_'+Date.now(),amount,category,envelope,note,source:'manual'});
       showToast('บันทึกแล้ว (โหมดทดลอง)');
     }
@@ -235,7 +268,7 @@ async function payFixedDebt(type){
   if(!debt)return showToast('ไม่พบรายการหนี้');
   if(DEMO){
     applyDemoEnvelopeDelta(debt.envelope,debt.amount);
-    DATA.todaySpent+=debt.amount;
+    applyDemoExpenseTotalDelta(debt.amount,debt.envelope,'debt');
     DATA.recentExpenses.unshift({id:'demo_debt_'+type+'_'+Date.now(),amount:debt.amount,category:debt.envelope,envelope:debt.envelope,note:debt.note,source:'debt'});
     renderAll();
     showToast('บันทึก'+debt.note+'แล้ว');
@@ -251,7 +284,7 @@ async function payFixedDebt(type){
 async function saveSavings(){ const emergencyCurrent=Number(document.getElementById('inputEmergency').value||0), carFundCurrent=Number(document.getElementById('inputCar').value||0); if(DEMO){DATA.settings.emergencyCurrent=emergencyCurrent;DATA.settings.carFundCurrent=carFundCurrent;renderAll();showToast('บันทึกยอดแล้ว');return;} try{await api({action:'saveSettings',emergencyCurrent,carFundCurrent});await loadData();showToast('บันทึกยอดแล้ว')}catch(err){showToast(err.message)} }
 async function dailyClose(){ if(DEMO){const save=Math.max(0,DATA.todayBudget-DATA.todaySpent);DATA.settings.emergencyCurrent+=save;renderAll();showToast('ปิดยอดและออม '+fmt(save)+' บาท');return;} try{const r=await api({action:'dailyClose'});DATA=r.data;renderAll();showToast('ปิดยอดและออม '+fmt(r.saved||0)+' บาท')}catch(err){showToast(err.message)} }
 function openSettings(){ document.getElementById('settingsModal').classList.add('show'); } function closeSettings(){ document.getElementById('settingsModal').classList.remove('show'); }
-async function saveAppSettings(){ const p={action:'saveSettings',dailyBudget:Number(document.getElementById('setDailyBudget').value||310),dailyAutoTransferHour:Number(document.getElementById('setDailyHour').value||7),partnerName:document.getElementById('setPartnerName').value,partnerContact:document.getElementById('setPartnerContact').value}; if(DEMO){Object.assign(DATA.settings,p);renderAll();closeSettings();showToast('บันทึกตั้งค่าแล้ว');return;} try{await api(p);await loadData();closeSettings();showToast('บันทึกตั้งค่าแล้ว')}catch(err){showToast(err.message)} }
+async function saveAppSettings(){ const p={action:'saveSettings',dailyBudget:Number(document.getElementById('setDailyBudget').value||310),dailyAutoTransferHour:Number(document.getElementById('setDailyHour').value||7),partnerName:document.getElementById('setPartnerName').value,partnerContact:document.getElementById('setPartnerContact').value}; if(DEMO){Object.assign(DATA.settings,p);DATA.todayBudget=p.dailyBudget;const daily=DATA.envelopes.find(e=>e.group==='daily'||e.name==='ซองรายวัน');if(daily){daily.budget=p.dailyBudget;daily.remaining=Number(daily.budget||0)-Number(daily.spent||0);daily.percent=daily.budget?Math.round(Number(daily.spent||0)/daily.budget*100):0;daily.low=daily.budget>0&&daily.remaining<=daily.budget*.2;}renderAll();closeSettings();showToast('บันทึกตั้งค่าแล้ว');return;} try{await api(p);await loadData();closeSettings();showToast('บันทึกตั้งค่าแล้ว')}catch(err){showToast(err.message)} }
 async function resetMonth(){ if(!confirm('รีเซ็ตยอดใช้ทุกซองสำหรับเดือนใหม่?'))return; if(DEMO){DATA=DEMO_DATA();renderAll();showToast('รีเซ็ตแล้ว');return;} try{const r=await api({action:'resetMonth'});DATA=r.data;renderAll();showToast('รีเซ็ตแล้ว')}catch(err){showToast(err.message)} }
 async function resetAllData(){
   if(!confirm('รีเซ็ตข้อมูลทั้งหมดเพื่อเริ่มใช้งานจริง? รายจ่าย รายรับ wishlist ประวัติหนี้ event และค่าที่กรอกไว้จะถูกล้าง'))return;
