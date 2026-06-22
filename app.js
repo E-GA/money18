@@ -1,14 +1,16 @@
 const STORAGE_KEY = 'disciplineMoneyScriptUrl';
+const DAILY_BUDGET_DEFAULT = 180;
 let SCRIPT_URL = localStorage.getItem(STORAGE_KEY) || '';
 let DEMO = false;
 let DATA = null;
 let EDITING_EXPENSE_ID = '';
+let EDITING_ENVELOPE_NAME = '';
 
 const DEMO_DATA = () => ({
   success:true,
   today:new Date().toISOString().slice(0,10),
   todaySpent:120,
-  todayBudget:310,
+  todayBudget:DAILY_BUDGET_DEFAULT,
   totalSpentToday:120,
   totalSpentMonth:1270,
   totalSpentAll:1270,
@@ -21,13 +23,17 @@ const DEMO_DATA = () => ({
     {name:'ค่าน้ำมัน',group:'variable',budget:1500,spent:300,remaining:1200,percent:20,locked:false,color:'#fb923c',low:false},
     {name:'ความสุข/เที่ยว',group:'variable',budget:2000,spent:0,remaining:2000,percent:0,locked:false,color:'#8b5cf6',low:false},
     {name:'ซื้อของใช้',group:'variable',budget:1000,spent:0,remaining:1000,percent:0,locked:false,color:'#60a5fa',low:false},
-    {name:'ซองรายวัน',group:'daily',budget:310,spent:120,remaining:190,percent:39,locked:false,color:'#10b981',low:false},
+    {name:'ซองรายวัน',group:'daily',budget:DAILY_BUDGET_DEFAULT,spent:120,remaining:60,percent:67,locked:false,color:'#10b981',low:false},
     {name:'เงินฉุกเฉิน',group:'savings',budget:3200,spent:0,remaining:3200,percent:0,locked:false,color:'#10b981',goal:10000,low:false},
     {name:'ดูแลรถ',group:'savings',budget:1500,spent:0,remaining:1500,percent:0,locked:false,color:'#38bdf8',goal:6000,low:false}
   ],
   recentExpenses:[{id:'demo_exp_1',amount:80,category:'ค่าอาหาร',envelope:'ค่าอาหาร',note:'ข้าวเที่ยง',source:'manual'},{id:'demo_exp_2',amount:40,category:'ค่าอาหาร',envelope:'ค่าอาหาร',note:'กาแฟ',source:'manual'}],
+  incomeHistory:[
+    {id:'demo_inc_1',date:new Date().toISOString(),amount:5200,round:'15',note:'OT รอบวันที่ 15'},
+    {id:'demo_inc_2',date:new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString(),amount:24998,round:'end',note:'เงินเดือนหลักสิ้นเดือน'}
+  ],
   wishes:[],
-  settings:{dailyBudget:310,dailyAutoTransferHour:7,debtMonthsLeft:15,debtTargetMonths:18,debtMonthlyPayment:1600,emergencyCurrent:3200,emergencyGoal:10000,emergencyNextGoal:30000,carFundCurrent:1500,carFundGoal:6000,petHealth:86,petLevel:3,streakDays:90,totalSaved:2400,partnerName:'',partnerContact:''},
+  settings:{dailyBudget:DAILY_BUDGET_DEFAULT,dailyAutoTransferHour:7,debtMonthsLeft:15,debtTargetMonths:18,debtMonthlyPayment:1600,emergencyCurrent:3200,emergencyGoal:10000,emergencyNextGoal:30000,carFundCurrent:1500,carFundGoal:6000,petHealth:86,petLevel:3,streakDays:90,totalSaved:2400,partnerName:'',partnerContact:''},
   debtHistory:[{},{},{}],
   events:[{message:'แบ่งเงินรอบวันที่ 15 อัตโนมัติแล้ว',amount:5200},{message:'อดใจไม่ซื้อสินค้า เซฟเงินได้',amount:2400}]
 });
@@ -44,6 +50,7 @@ function FRESH_DATA(){
   data.totalSpentMonth=0;
   data.totalSpentAll=0;
   data.recentExpenses=[];
+  data.incomeHistory=[];
   data.wishes=[];
   data.debtHistory=[];
   data.events=[];
@@ -61,6 +68,22 @@ window.addEventListener('load', () => {
 function hideSetup(){ document.getElementById('setupModal').classList.remove('show'); }
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(window.toastTimer); window.toastTimer=setTimeout(()=>t.classList.remove('show'),2800); }
 function fmt(n){ return Number(n||0).toLocaleString('th-TH'); }
+function normalizeDailyBudgetData(data){
+  if(!data)return;
+  data.settings=data.settings||{};
+  const incoming=Number(data.todayBudget||data.settings.dailyBudget||0);
+  if(!incoming||incoming===310){
+    data.todayBudget=DAILY_BUDGET_DEFAULT;
+    data.settings.dailyBudget=DAILY_BUDGET_DEFAULT;
+  }
+  const daily=(data.envelopes||[]).find(e=>e.group==='daily'||e.name==='ซองรายวัน');
+  if(daily&&(!Number(daily.budget||0)||Number(daily.budget||0)===310)){
+    daily.budget=DAILY_BUDGET_DEFAULT;
+    daily.remaining=Number(daily.budget||0)-Number(daily.spent||0);
+    daily.percent=daily.budget?Math.round(Number(daily.spent||0)/daily.budget*100):0;
+    daily.low=daily.budget>0&&daily.remaining<=daily.budget*.2;
+  }
+}
 function demoExpenseCountsTowardDailyQuota(envelope,source='manual'){
   if(source==='debt')return false;
   const env=DATA.envelopes.find(e=>e.name===envelope);
@@ -97,9 +120,9 @@ async function saveScriptUrl(){
 }
 function startDemo(){ DEMO=true; hideSetup(); loadData(); showToast('กำลังใช้โหมดทดลอง'); }
 
-function renderAll(){ renderDashboard(); renderEnvelopes(); renderSelects(); renderRecent(); renderWishes(); renderDebt(); renderSavings(); renderEvents(); renderSettingsForm(); }
+function renderAll(){ normalizeDailyBudgetData(DATA); renderDashboard(); renderIncomePage(); renderEnvelopes(); renderSelects(); renderRecent(); renderWishes(); renderDebt(); renderSavings(); renderEvents(); renderSettingsForm(); }
 function renderDashboard(){
-  const spent=Number(DATA.todaySpent||0), budget=Number(DATA.todayBudget||310), remain=Math.max(0,budget-spent), pct=budget?Math.max(0,Math.min(100,remain/budget*100)):0;
+  const spent=Number(DATA.todaySpent||0), budget=Number(DATA.todayBudget||DAILY_BUDGET_DEFAULT), remain=Math.max(0,budget-spent), pct=budget?Math.max(0,Math.min(100,remain/budget*100)):0;
   const usable = DATA.envelopes.filter(e=>!e.locked && !['savings'].includes(e.group)).reduce((s,e)=>s+Number(e.remaining||0),0);
   document.getElementById('dailyRemain').textContent=fmt(remain); document.getElementById('dailySpent').textContent=fmt(spent); document.getElementById('dailyBudget').textContent=fmt(budget); document.getElementById('realAvailable').textContent=fmt(usable);
   document.getElementById('totalSpentToday').textContent=fmt(DATA.totalSpentToday??spent);
@@ -110,6 +133,67 @@ function renderDashboard(){
   const health=Number(DATA.settings.petHealth||100); const stages=[['🥚','ไข่แห่งความหวัง','เริ่มต้นใหม่ได้เสมอ'],['🐣','ลูกนกวินัย','ต้องดูแลมากขึ้น'],['🐲','มังกรทองแห่งวินัย','ยังแข็งแรงดี คุมงบต่อไป'],['🔥🐲','มังกรไฟแห่งความมั่งคั่ง','วินัยสุดยอดมาก']];
   const idx=health>=90?3:health>=65?2:health>=35?1:0; document.getElementById('petFace').textContent=stages[idx][0]; document.getElementById('petName').textContent=stages[idx][1]; document.getElementById('petMsg').textContent=health<35?'สัตว์เทพเริ่มป่วย เพราะใช้เงินเกินแผน':stages[idx][2]; document.getElementById('petBar').style.width=health+'%';
 }
+function renderIncomePage(){
+  const envs=DATA.envelopes||[];
+  const totalBudget=envs.reduce((s,e)=>s+Number(e.budget||0),0);
+  const totalSpent=envs.reduce((s,e)=>s+Number(e.spent||0),0);
+  const envelopeRemaining=envs.reduce((s,e)=>s+Number(e.remaining||0),0);
+  const totalIncome=(DATA.incomeHistory||[]).reduce((s,e)=>s+Number(e.amount||0),0);
+  const allSpent=Number(DATA.totalSpentAll??totalSpent);
+  const totalRemaining=totalIncome?totalIncome-allSpent:envelopeRemaining;
+  const circleBase=totalIncome||totalBudget;
+  const pct=circleBase?Math.max(0,Math.min(100,totalRemaining/circleBase*100)):0;
+  document.getElementById('incomeRemainingTotal').textContent=fmt(totalRemaining);
+  document.getElementById('incomeRemainCircle').style.setProperty('--p',pct+'%');
+  document.getElementById('incomeTotalSpent').textContent=fmt(allSpent);
+  document.getElementById('incomeUsableRemaining').textContent=fmt(totalIncome);
+  document.getElementById('incomeReservedMoney').textContent=fmt(envelopeRemaining);
+  renderIncomeHistory();
+  renderIncomeEnvelopes();
+}
+function renderIncomeHistory(){
+  const list=document.getElementById('incomeHistoryList');
+  const rows=(DATA.incomeHistory||[]).slice().sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
+  if(!rows.length){list.innerHTML='<p class="small">ยังไม่มีประวัติรายรับ</p>';return;}
+  const groups=rows.reduce((out,row)=>{
+    const key=incomeMonthKey(row.date);
+    (out[key]||(out[key]=[])).push(row);
+    return out;
+  },{});
+  list.innerHTML=Object.keys(groups).sort().reverse().map(key=>{
+    const items=groups[key];
+    const total=items.reduce((s,x)=>s+Number(x.amount||0),0);
+    return `<div class="income-month"><div class="income-month-head"><strong>${escapeHtml(incomeMonthLabel(key))}</strong><span>${fmt(total)} ฿</span></div>${items.map(item=>`<div class="income-row"><div><strong>${escapeHtml(incomeRoundLabel(item.round))}</strong><em>${escapeHtml(incomeDateText(item.date))}${item.note?' · '+escapeHtml(item.note):''}</em></div><b class="amount-green">+${fmt(item.amount)} ฿</b></div>`).join('')}</div>`;
+  }).join('');
+}
+function renderIncomeEnvelopes(){
+  const list=document.getElementById('incomeEnvelopeList');
+  const envs=(DATA.envelopes||[]).slice().sort((a,b)=>{
+    const order={daily:0,variable:1,fixed:2,savings:3,custom:4};
+    return (order[a.group]??9)-(order[b.group]??9)||String(a.name).localeCompare(String(b.name),'th');
+  });
+  list.innerHTML=envs.length?envs.map(e=>{
+    const pct=e.budget?Math.max(0,Math.min(100,Number(e.spent||0)/Number(e.budget||0)*100)):0;
+    const status=e.locked?'ล็อก':e.group==='savings'?'ออม':'ใช้ได้';
+    const name=escapeHtml(escapeJsArg(e.name));
+    return `<div class="income-envelope-row" style="--c:${e.color||'#23d18b'}"><div><strong>${escapeHtml(e.name)}</strong><em>${escapeHtml(status)} · งบ ${fmt(e.budget)} · ใช้ ${fmt(e.spent)}</em><div class="bar"><i style="width:${pct}%;background:${pct>85?'var(--red)':pct>65?'var(--yellow)':'var(--green)'}"></i></div></div><div class="income-envelope-side"><b>${fmt(e.remaining)} ฿</b><div class="income-envelope-actions"><button class="mini ok" onclick="openEnvelopeEditor('${name}')">แก้ไข</button><button class="mini wait" onclick="resetEnvelopeSpent('${name}')">ล้างใช้</button><button class="mini no" onclick="deleteEnvelope('${name}')">ลบ</button></div></div></div>`;
+  }).join(''):'<p class="small">ยังไม่มีซองเงิน</p>';
+}
+function incomeMonthKey(value){
+  const d=new Date(value||Date.now());
+  if(isNaN(d.getTime()))return 'ไม่ทราบเดือน';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function incomeMonthLabel(key){
+  if(key==='ไม่ทราบเดือน')return key;
+  const parts=key.split('-');
+  return new Date(Number(parts[0]),Number(parts[1])-1,1).toLocaleDateString('th-TH',{month:'long',year:'numeric'});
+}
+function incomeDateText(value){
+  const d=new Date(value||Date.now());
+  return isNaN(d.getTime())?'ไม่ทราบวันที่':d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'});
+}
+function incomeRoundLabel(round){ return round==='15'?'OT วันที่ 15':round==='end'?'เงินเดือนสิ้นเดือน':'รายรับ'; }
 function renderEnvelopes(){
   document.getElementById('envelopes').innerHTML = DATA.envelopes.map(e=>{
     const label = e.locked?'🔒 ': e.low?'🚨 ':''; const status=e.low?'ใกล้หมด':e.locked?'ล็อกไว้':'ใช้ได้';
@@ -144,7 +228,7 @@ function renderWishes(){
 function renderDebt(){ const target=Number(DATA.settings.debtTargetMonths||18), left=Number(DATA.settings.debtMonthsLeft||18), paid=target-left; document.getElementById('monthsLeft2').textContent=fmt(left); document.getElementById('debtBar2').style.width=Math.max(0,Math.min(100,paid/target*100))+'%'; document.getElementById('debtDots').innerHTML=Array.from({length:target},(_,i)=>`<span class="dot ${i<paid?'done':i===paid?'now':''}">${i+1}</span>`).join(''); renderBadges(); }
 function renderBadges(){ const s=Number(DATA.settings.streakDays||0), e=Number(DATA.settings.emergencyCurrent||0); document.getElementById('badges').innerHTML=[['🛡️ 30 วันไม่กดบัตร',s>=30],['🔥 90 วันติด',s>=90],['🥉 ฉุกเฉิน 10,000',e>=10000],['🏰 ฉุกเฉิน 30,000',e>=30000]].map(b=>`<span class="badge2 ${b[1]?'on':''}">${b[0]}</span>`).join(''); }
 function renderSavings(){ const e=Number(DATA.settings.emergencyCurrent||0), eg=Number(DATA.settings.emergencyGoal||10000), c=Number(DATA.settings.carFundCurrent||0), cg=Number(DATA.settings.carFundGoal||6000); document.getElementById('emergencyMoney').textContent=fmt(e); document.getElementById('carMoney').textContent=fmt(c); document.getElementById('emergencyBar').style.width=Math.min(100,e/eg*100)+'%'; document.getElementById('carBar').style.width=Math.min(100,c/cg*100)+'%'; document.getElementById('inputEmergency').value=e||''; document.getElementById('inputCar').value=c||''; document.getElementById('badgeSurvive').classList.toggle('on',e>=10000); document.getElementById('badgeFortress').classList.toggle('on',e>=30000); }
-function renderSettingsForm(){ const s=DATA.settings||{}; document.getElementById('setDailyBudget').value=s.dailyBudget||310; document.getElementById('setDailyHour').value=s.dailyAutoTransferHour||7; document.getElementById('setPartnerName').value=s.partnerName||''; document.getElementById('setPartnerContact').value=s.partnerContact||''; }
+function renderSettingsForm(){ const s=DATA.settings||{}; document.getElementById('setDailyBudget').value=s.dailyBudget||DAILY_BUDGET_DEFAULT; document.getElementById('setDailyHour').value=s.dailyAutoTransferHour||7; document.getElementById('setPartnerName').value=s.partnerName||''; document.getElementById('setPartnerContact').value=s.partnerContact||''; }
 
 function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.page===name)); window.scrollTo({top:0,behavior:'smooth'}); }
 function pickEnvelope(name){ showPage('add'); document.getElementById('expEnvelope').value=name; }
@@ -159,6 +243,17 @@ function applyDemoEnvelopeDelta(name,delta){
   env.remaining=Number(env.budget||0)-env.spent;
   env.percent=env.budget?Math.round(env.spent/env.budget*100):0;
   env.low=env.budget>0&&env.remaining<=env.budget*.2;
+}
+function applyDemoIncomeAllocation(round,amount){
+  const allocations=round==='15'?[['ค่าอาหาร',2500],['ค่าน้ำมัน',1500],['เงินฉุกเฉิน',1200]]:[['กู้ออมสิน',6214.34],['ค่างวดรถ',7375],['ประกันสังคม',875],['บัตรกดเงินสด',1600],['ความสุข/เที่ยว',2000],['ซื้อของใช้',1000],['ดูแลรถ',500],['ซองรายวัน',DATA.todayBudget||DAILY_BUDGET_DEFAULT]];
+  allocations.forEach(([name,budget])=>{
+    const env=DATA.envelopes.find(e=>e.name===name);
+    if(env){env.budget=budget;env.spent=0;env.remaining=budget;env.percent=0;env.low=false;}
+  });
+  DATA.incomeHistory=DATA.incomeHistory||[];
+  DATA.incomeHistory.unshift({id:'demo_inc_'+Date.now(),date:new Date().toISOString(),amount,round,note:round==='15'?'OT รอบวันที่ 15':'เงินเดือนหลักสิ้นเดือน'});
+  DATA.events=DATA.events||[];
+  DATA.events.unshift({message:'แบ่งเงินรอบ '+(round==='15'?'วันที่ 15':'สิ้นเดือน')+' อัตโนมัติแล้ว',amount});
 }
 function clearExpenseForm(){
   EDITING_EXPENSE_ID='';
@@ -241,8 +336,91 @@ async function submitExpense(){
     showToast(wasEditing?'แก้ไขรายการแล้ว':'บันทึกแล้ว');
   }catch(err){showToast(err.message)}
 }
-async function addIncome(round){ const amount=round==='15'?5200:24998; if(DEMO){DATA=DEMO_DATA(); showToast('แบ่งเงินอัตโนมัติแล้ว (ทดลอง)'); renderAll(); return;} try{ const r=await api({action:'addIncome',round,amount,note:round==='15'?'OT รอบวันที่ 15':'เงินเดือนหลักสิ้นเดือน'}); DATA=r.data; renderAll(); showToast('แบ่งเงินเข้าซองแล้ว'); }catch(err){showToast(err.message)} }
-async function createEnvelope(){ const name=document.getElementById('newEnvName').value.trim(); if(!name)return showToast('กรอกชื่อซอง'); const budget=Number(document.getElementById('newEnvBudget').value||0), group=document.getElementById('newEnvGroup').value; if(DEMO){DATA.envelopes.push({name,group,budget,spent:0,remaining:budget,percent:0,locked:false,color:'#23d18b'});renderAll();showToast('สร้างซองแล้ว');return;} try{const r=await api({action:'createEnvelope',name,budget,group});DATA=r.data;renderAll();showToast('สร้างซองแล้ว')}catch(err){showToast(err.message)} }
+async function addIncome(round){
+  const inputId=round==='15'?'incomeOtAmount':'incomeEndAmount';
+  const amount=Number(document.getElementById(inputId).value||0);
+  if(amount<=0)return showToast('กรอกยอดเงินก่อน');
+  if(DEMO){applyDemoIncomeAllocation(round,amount);document.getElementById(inputId).value='';renderAll();showToast('แบ่งเงินอัตโนมัติแล้ว (ทดลอง)');return;}
+  try{ const r=await api({action:'addIncome',round,amount,note:round==='15'?'OT รอบวันที่ 15':'เงินเดือนหลักสิ้นเดือน'}); DATA=r.data; document.getElementById(inputId).value=''; renderAll(); showToast('แบ่งเงินเข้าซองแล้ว'); }catch(err){showToast(err.message)} }
+async function createEnvelope(){ const name=document.getElementById('newEnvName').value.trim(); if(!name)return showToast('กรอกชื่อซอง'); const budget=Number(document.getElementById('newEnvBudget').value||0), group=document.getElementById('newEnvGroup').value; if(DEMO){if(DATA.envelopes.some(e=>e.name===name))return showToast('มีซองนี้แล้ว');DATA.envelopes.push({name,group,budget,spent:0,remaining:budget,percent:0,locked:false,color:'#23d18b'});document.getElementById('newEnvName').value='';document.getElementById('newEnvBudget').value='';renderAll();showToast('สร้างซองแล้ว');return;} try{const r=await api({action:'createEnvelope',name,budget,group});DATA=r.data;document.getElementById('newEnvName').value='';document.getElementById('newEnvBudget').value='';renderAll();showToast('สร้างซองแล้ว')}catch(err){showToast(err.message)} }
+function recalcEnvelope(env){
+  env.budget=Number(env.budget||0);
+  env.spent=Math.max(0,Number(env.spent||0));
+  env.remaining=env.budget-env.spent;
+  env.percent=env.budget?Math.round(env.spent/env.budget*100):0;
+  env.low=env.budget>0&&env.remaining<=env.budget*.2;
+}
+function openEnvelopeEditor(name){
+  const env=(DATA.envelopes||[]).find(e=>e.name===name);
+  if(!env)return showToast('ไม่พบซอง');
+  EDITING_ENVELOPE_NAME=name;
+  document.getElementById('editEnvOriginalName').value=name;
+  document.getElementById('editEnvName').value=name;
+  document.getElementById('editEnvBudget').value=Number(env.remaining||0);
+  document.getElementById('editEnvSpent').value=Number(env.spent||0);
+  document.getElementById('editEnvGroup').value=env.group||'custom';
+  document.getElementById('editEnvGoal').value=Number(env.goal||0)||'';
+  document.getElementById('editEnvLocked').checked=!!env.locked;
+  document.getElementById('deleteEnvelopeBtn').disabled=name==='ซองรายวัน';
+  document.getElementById('envelopeModal').classList.add('show');
+}
+function closeEnvelopeEditor(){
+  EDITING_ENVELOPE_NAME='';
+  document.getElementById('envelopeModal').classList.remove('show');
+}
+async function saveEnvelopeEditor(){
+  const name=document.getElementById('editEnvOriginalName').value;
+  if(!name)return showToast('ไม่พบซองที่จะแก้ไข');
+  const remaining=Number(document.getElementById('editEnvBudget').value||0);
+  const spent=Number(document.getElementById('editEnvSpent').value||0);
+  const payload={action:'updateEnvelope',name,budget:remaining+spent,spent,group:document.getElementById('editEnvGroup').value,goal:Number(document.getElementById('editEnvGoal').value||0),locked:document.getElementById('editEnvLocked').checked?'true':'false'};
+  if(DEMO){
+    const env=DATA.envelopes.find(e=>e.name===name);
+    if(!env)return showToast('ไม่พบซอง');
+    Object.assign(env,{budget:payload.budget,spent:payload.spent,group:payload.group,goal:payload.goal,locked:payload.locked==='true'});
+    recalcEnvelope(env);
+    if(name==='ซองรายวัน'){DATA.todayBudget=payload.budget;DATA.settings.dailyBudget=payload.budget;}
+    closeEnvelopeEditor();renderAll();showToast('บันทึกซองแล้ว');return;
+  }
+  try{const r=await api(payload);DATA=r.data;closeEnvelopeEditor();renderAll();showToast('บันทึกซองแล้ว')}catch(err){showToast(err.message)}
+}
+async function resetEnvelopeSpent(name){
+  if(!confirm('ล้างยอดใช้ของซอง '+name+' เป็น 0?'))return;
+  if(DEMO){
+    const env=DATA.envelopes.find(e=>e.name===name);
+    if(!env)return showToast('ไม่พบซอง');
+    env.spent=0;recalcEnvelope(env);renderAll();showToast('ล้างยอดใช้แล้ว');return true;
+  }
+  try{const r=await api({action:'updateEnvelope',name,spent:0});DATA=r.data;renderAll();showToast('ล้างยอดใช้แล้ว');return true}catch(err){showToast(err.message);return false}
+}
+async function resetEnvelopeSpentFromEditor(){
+  const name=document.getElementById('editEnvOriginalName').value;
+  if(!name)return showToast('ไม่พบซอง');
+  const ok=await resetEnvelopeSpent(name);
+  if(ok){
+    const env=(DATA.envelopes||[]).find(e=>e.name===name);
+    if(env){
+      document.getElementById('editEnvBudget').value=Number(env.remaining||0);
+      document.getElementById('editEnvSpent').value=Number(env.spent||0);
+    }
+  }
+}
+async function deleteEnvelope(name){
+  if(name==='ซองรายวัน')return showToast('ซองรายวันเป็นซองหลัก ลบไม่ได้');
+  if(!confirm('ลบซอง '+name+'? ถ้ามีประวัติรายจ่ายอยู่ ระบบจะไม่ให้ลบ'))return;
+  if(DEMO){
+    if((DATA.recentExpenses||[]).some(e=>e.envelope===name))return showToast('ซองนี้มีประวัติรายจ่าย ลบไม่ได้');
+    DATA.envelopes=DATA.envelopes.filter(e=>e.name!==name);
+    if(EDITING_ENVELOPE_NAME===name)closeEnvelopeEditor();
+    renderAll();showToast('ลบซองแล้ว');return;
+  }
+  try{const r=await api({action:'deleteEnvelope',name});DATA=r.data;if(EDITING_ENVELOPE_NAME===name)closeEnvelopeEditor();renderAll();showToast('ลบซองแล้ว')}catch(err){showToast(err.message)}
+}
+function deleteEnvelopeFromEditor(){
+  const name=document.getElementById('editEnvOriginalName').value;
+  if(!name)return showToast('ไม่พบซอง');
+  deleteEnvelope(name);
+}
 async function addWish(){ const name=document.getElementById('wishName').value.trim(), price=Number(document.getElementById('wishPrice').value||0); if(!name||price<=0)return showToast('กรอกชื่อและราคา'); if(DEMO){const now=new Date();DATA.wishes.push({id:'d'+Date.now(),name,price,addedAt:now,expiresAt:new Date(now.getTime()+86400000)});renderWishes();showToast('เริ่มนับ 24 ชั่วโมงแล้ว');return;} try{await api({action:'addWish',name,price});await loadData();showToast('เริ่มนับ 24 ชั่วโมงแล้ว')}catch(err){showToast(err.message)} }
 async function updateWish(id,status){ if(DEMO){const w=DATA.wishes.find(x=>x.id===id); if(status==='cancelled'&&w)DATA.settings.totalSaved+=w.price; DATA.wishes=DATA.wishes.filter(x=>x.id!==id); renderAll(); showToast(status==='cancelled'?'เยี่ยม! เซฟเงินได้':'อนุมัติซื้อแล้ว'); return;} try{const r=await api({action:'updateWish',id,status});DATA=r.data;renderAll();showToast(status==='cancelled'?'เยี่ยม! เซฟเงินได้':'อนุมัติซื้อแล้ว')}catch(err){showToast(err.message)} }
 async function deleteWish(id){ if(DEMO){DATA.wishes=DATA.wishes.filter(x=>x.id!==id);renderWishes();return;} try{const r=await api({action:'deleteWish',id});DATA=r.data;renderAll()}catch(err){showToast(err.message)} }
@@ -284,7 +462,7 @@ async function payFixedDebt(type){
 async function saveSavings(){ const emergencyCurrent=Number(document.getElementById('inputEmergency').value||0), carFundCurrent=Number(document.getElementById('inputCar').value||0); if(DEMO){DATA.settings.emergencyCurrent=emergencyCurrent;DATA.settings.carFundCurrent=carFundCurrent;renderAll();showToast('บันทึกยอดแล้ว');return;} try{await api({action:'saveSettings',emergencyCurrent,carFundCurrent});await loadData();showToast('บันทึกยอดแล้ว')}catch(err){showToast(err.message)} }
 async function dailyClose(){ if(DEMO){const save=Math.max(0,DATA.todayBudget-DATA.todaySpent);DATA.settings.emergencyCurrent+=save;renderAll();showToast('ปิดยอดและออม '+fmt(save)+' บาท');return;} try{const r=await api({action:'dailyClose'});DATA=r.data;renderAll();showToast('ปิดยอดและออม '+fmt(r.saved||0)+' บาท')}catch(err){showToast(err.message)} }
 function openSettings(){ document.getElementById('settingsModal').classList.add('show'); } function closeSettings(){ document.getElementById('settingsModal').classList.remove('show'); }
-async function saveAppSettings(){ const p={action:'saveSettings',dailyBudget:Number(document.getElementById('setDailyBudget').value||310),dailyAutoTransferHour:Number(document.getElementById('setDailyHour').value||7),partnerName:document.getElementById('setPartnerName').value,partnerContact:document.getElementById('setPartnerContact').value}; if(DEMO){Object.assign(DATA.settings,p);DATA.todayBudget=p.dailyBudget;const daily=DATA.envelopes.find(e=>e.group==='daily'||e.name==='ซองรายวัน');if(daily){daily.budget=p.dailyBudget;daily.remaining=Number(daily.budget||0)-Number(daily.spent||0);daily.percent=daily.budget?Math.round(Number(daily.spent||0)/daily.budget*100):0;daily.low=daily.budget>0&&daily.remaining<=daily.budget*.2;}renderAll();closeSettings();showToast('บันทึกตั้งค่าแล้ว');return;} try{await api(p);await loadData();closeSettings();showToast('บันทึกตั้งค่าแล้ว')}catch(err){showToast(err.message)} }
+async function saveAppSettings(){ const p={action:'saveSettings',dailyBudget:Number(document.getElementById('setDailyBudget').value||DAILY_BUDGET_DEFAULT),dailyAutoTransferHour:Number(document.getElementById('setDailyHour').value||7),partnerName:document.getElementById('setPartnerName').value,partnerContact:document.getElementById('setPartnerContact').value}; if(DEMO){Object.assign(DATA.settings,p);DATA.todayBudget=p.dailyBudget;const daily=DATA.envelopes.find(e=>e.group==='daily'||e.name==='ซองรายวัน');if(daily){daily.budget=p.dailyBudget;daily.remaining=Number(daily.budget||0)-Number(daily.spent||0);daily.percent=daily.budget?Math.round(Number(daily.spent||0)/daily.budget*100):0;daily.low=daily.budget>0&&daily.remaining<=daily.budget*.2;}renderAll();closeSettings();showToast('บันทึกตั้งค่าแล้ว');return;} try{await api(p);await loadData();closeSettings();showToast('บันทึกตั้งค่าแล้ว')}catch(err){showToast(err.message)} }
 async function resetMonth(){ if(!confirm('รีเซ็ตยอดใช้ทุกซองสำหรับเดือนใหม่?'))return; if(DEMO){DATA=DEMO_DATA();renderAll();showToast('รีเซ็ตแล้ว');return;} try{const r=await api({action:'resetMonth'});DATA=r.data;renderAll();showToast('รีเซ็ตแล้ว')}catch(err){showToast(err.message)} }
 async function resetAllData(){
   if(!confirm('รีเซ็ตข้อมูลทั้งหมดเพื่อเริ่มใช้งานจริง? รายจ่าย รายรับ wishlist ประวัติหนี้ event และค่าที่กรอกไว้จะถูกล้าง'))return;
