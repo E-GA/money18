@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>วินัยการเงิน By.e-ga </title>
+  <title>วินัยการเงิน by.E-ga </title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260622-11">
+  <link rel="stylesheet" href="styles.css?v=20260622-12">
 </head>
 <body>
   <div class="toast" id="toast"></div>
@@ -253,6 +253,19 @@
     </div>
   </div></div>
 
-<script src="app.js?v=20260622-11"></script>
+  <div class="modal" id="incomeModal"><div class="modal-box">
+    <div class="card-title"><h2>แก้ไขรายรับ</h2><button class="mini wait" onclick="closeIncomeEditor()">ปิด</button></div>
+    <div class="form">
+      <input id="editIncomeId" type="hidden">
+      <div class="field"><label>ยอดรายรับ</label><input id="editIncomeAmount" type="number" inputmode="decimal" step="0.01"></div>
+      <div class="field"><label>รับมาจากไหน</label><input id="editIncomeSource"></div>
+      <div class="row">
+        <button class="btn" onclick="saveIncomeEditor()">บันทึกรายรับ</button>
+        <button class="btn red" onclick="deleteIncomeFromEditor()">ลบรายการนี้</button>
+      </div>
+    </div>
+  </div></div>
+
+<script src="app.js?v=20260622-12"></script>
 </body>
 </html>
