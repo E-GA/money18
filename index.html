@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260622-10">
 </head>
 <body>
   <div class="toast" id="toast"></div>
@@ -34,12 +34,12 @@
       <div class="grid">
         <div class="stack">
           <div class="card hero available-card">
-            <div class="card-title"><div><h2>เงินคงเหลือที่ใช้ได้จริงวันนี้</h2><p class="small">ไม่รวมซองล็อกและรายจ่ายประจำ</p></div><span class="pill" id="dailyStatus">🟢 คุมได้</span></div>
+            <div class="card-title"><div><h2>โควตาคงเหลือวันนี้</h2><p class="small">วงเงินรายวัน - รายจ่ายที่บันทึกวันนี้</p></div><span class="pill" id="dailyStatus">🟢 คุมได้</span></div>
             <div><span class="big-money" id="dailyRemain">0</span> <span class="unit">บาท</span></div>
             <div class="bar" style="margin:14px 0"><i id="dailyBar"></i></div>
             <div class="metrics">
               <div class="metric"><b id="dailySpent">0</b><span>ใช้ไปวันนี้</span></div>
-              <div class="metric"><b id="dailyBudget">310</b><span>โควตาวันนี้</span></div>
+              <div class="metric"><b id="dailyBudget">0</b><span>โควตาต่อวัน</span></div>
               <div class="metric"><b id="realAvailable">0</b><span>เงินใช้ได้จริงรวม</span></div>
             </div>
             <div class="row" style="margin-top:12px"><button class="btn blue" onclick="showPage('add')">+ บันทึกด่วน</button><button class="btn secondary" onclick="dailyClose()">ปิดยอดวันนี้ → ออม</button></div>
@@ -99,16 +99,46 @@
         <div class="card">
           <div class="card-title"><h2>Income Splitter</h2><span class="pill">แบ่งเงินอัตโนมัติ</span></div>
           <div class="form">
-            <div class="row"><button class="btn" onclick="addIncome('15')">รับ OT วันที่ 15: 5,200</button><button class="btn blue" onclick="addIncome('end')">รับเงินเดือนสิ้นเดือน</button></div>
+            <div class="row">
+              <div class="field"><label>ยอด OT วันที่ 15</label><input id="incomeOtAmount" type="number" inputmode="decimal" step="0.01" placeholder="เช่น 5200"></div>
+              <div class="field"><label>ยอดเงินเดือนสิ้นเดือน</label><input id="incomeEndAmount" type="number" inputmode="decimal" step="0.01" placeholder="เช่น 24998"></div>
+            </div>
+            <div class="row"><button class="btn" onclick="addIncome('15')">รับ OT วันที่ 15</button><button class="btn blue" onclick="addIncome('end')">รับเงินเดือนสิ้นเดือน</button></div>
             <p class="small" style="line-height:1.8">รอบวันที่ 15 จะแบ่ง: อาหาร 2,500 | น้ำมัน 1,500 | ฉุกเฉิน 1,200<br>รอบสิ้นเดือนจะล็อกหนี้คงที่ 16,064.34 ก่อน แล้วเติมซองอื่นตามแผน</p>
           </div>
         </div>
         <div class="card">
-          <div class="card-title"><h2>สร้างซองใหม่</h2><span class="pill">Custom</span></div>
-          <div class="form">
-            <div class="field"><label>ชื่อซอง</label><input id="newEnvName" placeholder="เช่น ซองเที่ยวทะเล"></div>
-            <div class="row"><div class="field"><label>งบตั้งต้น</label><input id="newEnvBudget" type="number" placeholder="0"></div><div class="field"><label>ประเภท</label><select id="newEnvGroup"><option value="variable">ผันแปร</option><option value="savings">ออม/สำรอง</option><option value="custom">อื่นๆ</option></select></div></div>
-            <button class="btn" onclick="createEnvelope()">+ สร้างซอง</button>
+          <div class="card-title"><h2>จำนวนเงินที่เหลือทั้งหมด</h2><span class="pill">ทุกซอง</span></div>
+          <div class="income-overview">
+            <div class="money-circle" id="incomeRemainCircle">
+              <div class="money-circle-inner"><span id="incomeRemainingTotal">0</span><small>บาท</small></div>
+            </div>
+            <div class="metrics income-metrics">
+              <div class="metric"><b class="amount-red" id="incomeTotalSpent">0</b><span>ใช้ไปแล้ว</span></div>
+              <div class="metric"><b id="incomeUsableRemaining">0</b><span>รายรับทั้งหมด</span></div>
+              <div class="metric"><b id="incomeReservedMoney">0</b><span>เหลือในซอง</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid income-panels">
+        <div class="card">
+          <div class="card-title"><h2>ประวัติรายรับ</h2><span class="pill">รายเดือน</span></div>
+          <div class="income-history" id="incomeHistoryList"></div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="card-title"><h2>ซองเงินทั้งหมด</h2><span class="pill">คงเหลือ</span></div>
+            <div class="income-envelope-list" id="incomeEnvelopeList"></div>
+          </div>
+          <div class="card">
+            <div class="card-title"><h2>สร้างซองใหม่</h2><span class="pill">Custom</span></div>
+            <div class="form">
+              <div class="field"><label>ชื่อซอง</label><input id="newEnvName" placeholder="เช่น ซองเที่ยวทะเล"></div>
+              <div class="row"><div class="field"><label>งบตั้งต้น</label><input id="newEnvBudget" type="number" placeholder="0"></div><div class="field"><label>ประเภท</label><select id="newEnvGroup"><option value="variable">ผันแปร</option><option value="savings">ออม/สำรอง</option><option value="custom">อื่นๆ</option></select></div></div>
+              <button class="btn" onclick="createEnvelope()">+ สร้างซอง</button>
+            </div>
           </div>
         </div>
       </div>
@@ -204,6 +234,28 @@
     </div>
   </div></div>
 
-<script src="app.js"></script>
+  <div class="modal" id="envelopeModal"><div class="modal-box">
+    <div class="card-title"><h2>จัดการซองเงิน</h2><button class="mini wait" onclick="closeEnvelopeEditor()">ปิด</button></div>
+    <div class="form">
+      <input id="editEnvOriginalName" type="hidden">
+      <div class="field"><label>ชื่อซอง</label><input id="editEnvName" disabled></div>
+      <div class="row">
+        <div class="field"><label>ยอดคงเหลือในซอง</label><input id="editEnvBudget" type="number" inputmode="decimal" step="0.01"></div>
+        <div class="field"><label>ใช้ไปแล้ว</label><input id="editEnvSpent" type="number" inputmode="decimal" step="0.01"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>ประเภท</label><select id="editEnvGroup"><option value="daily">รายวัน</option><option value="variable">ผันแปร</option><option value="fixed">รายจ่ายประจำ/ล็อก</option><option value="savings">ออม/สำรอง</option><option value="custom">อื่นๆ</option></select></div>
+        <div class="field"><label>เป้าหมาย</label><input id="editEnvGoal" type="number" inputmode="decimal" step="0.01"></div>
+      </div>
+      <label class="check-field"><input id="editEnvLocked" type="checkbox"> ล็อกซองนี้</label>
+      <div class="row">
+        <button class="btn" onclick="saveEnvelopeEditor()">บันทึกซอง</button>
+        <button class="btn secondary" onclick="resetEnvelopeSpentFromEditor()">ล้างยอดใช้</button>
+      </div>
+      <button class="btn red" id="deleteEnvelopeBtn" onclick="deleteEnvelopeFromEditor()">ลบซองนี้</button>
+    </div>
+  </div></div>
+
+<script src="app.js?v=20260622-10"></script>
 </body>
 </html>
