@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>วินัยการเงิน 18 เดือน</title>
+  <title>วินัยการเงิน By.e-ga </title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260622-10">
+  <link rel="stylesheet" href="styles.css?v=20260622-11">
 </head>
 <body>
   <div class="toast" id="toast"></div>
@@ -100,11 +100,11 @@
           <div class="card-title"><h2>Income Splitter</h2><span class="pill">แบ่งเงินอัตโนมัติ</span></div>
           <div class="form">
             <div class="row">
-              <div class="field"><label>ยอด OT วันที่ 15</label><input id="incomeOtAmount" type="number" inputmode="decimal" step="0.01" placeholder="เช่น 5200"></div>
-              <div class="field"><label>ยอดเงินเดือนสิ้นเดือน</label><input id="incomeEndAmount" type="number" inputmode="decimal" step="0.01" placeholder="เช่น 24998"></div>
+              <div class="field"><label>ยอดรายรับเดือนนี้</label><input id="incomeAmount" type="number" inputmode="decimal" step="0.01" placeholder="เช่น 30198"></div>
+              <div class="field"><label>รับมาจากไหน</label><input id="incomeSource" placeholder="เช่น เงินเดือน + OT / ลูกค้า / งานเสริม"></div>
             </div>
-            <div class="row"><button class="btn" onclick="addIncome('15')">รับ OT วันที่ 15</button><button class="btn blue" onclick="addIncome('end')">รับเงินเดือนสิ้นเดือน</button></div>
-            <p class="small" style="line-height:1.8">รอบวันที่ 15 จะแบ่ง: อาหาร 2,500 | น้ำมัน 1,500 | ฉุกเฉิน 1,200<br>รอบสิ้นเดือนจะล็อกหนี้คงที่ 16,064.34 ก่อน แล้วเติมซองอื่นตามแผน</p>
+            <button class="btn blue" onclick="addIncome()">บันทึกรายรับเดือนนี้</button>
+            <p class="small" style="line-height:1.8">รายรับก้อนเดือนจะแบ่งเข้าซองตามแผนรายเดือนทั้งหมดในครั้งเดียว</p>
           </div>
         </div>
         <div class="card">
@@ -162,31 +162,28 @@
     <section id="page-debt" class="page">
       <div class="grid">
         <div class="card danger-card">
-          <div class="card-title"><h2>18-Month Debt Countdown</h2><span class="pill">ห้ามกดเพิ่ม</span></div>
-          <div><span class="big-money" style="color:var(--yellow)" id="monthsLeft2">18</span> <span class="unit">เดือน</span></div>
-          <div class="bar" style="margin:14px 0"><i id="debtBar2" style="background:var(--yellow)"></i></div>
-          <div class="debt-dots" id="debtDots"></div>
-          <div class="row" style="margin-top:14px">
-            <button class="btn yellow" onclick="payDebt()">✅ บันทึกจ่ายหนี้เดือนนี้ 1,600</button>
-            <button class="btn secondary" onclick="resetDebtPlan()">รีเซ็ตแผนหนี้</button>
+          <div class="card-title"><h2>รายการหนี้รายเดือน</h2><span class="pill" id="debtMonthLabel">เดือนนี้</span></div>
+          <div class="metrics">
+            <div class="metric"><b id="debtTotalDue">0</b><span>ยอดต้องจ่าย</span></div>
+            <div class="metric"><b id="debtPaidThisMonth">0</b><span>จ่ายแล้ว</span></div>
+            <div class="metric"><b id="debtUnpaidCount">0</b><span>ยังค้าง</span></div>
           </div>
+          <div class="debt-list" id="debtItemsList" style="margin-top:14px"></div>
         </div>
         <div class="stack">
           <div class="card">
-            <div class="card-title"><h2>จ่ายหนี้ประจำเดือน</h2><span class="pill">รวม 13,589.34 บาท</span></div>
-            <div class="list">
-              <div class="item expense-item">
-                <div><strong>หนี้งวดรถ</strong><em>ค่างวดรถ</em></div>
-                <div class="expense-controls"><div class="amount-red">7,375 ฿</div><button class="mini no" onclick="payFixedDebt('car')">บันทึกจ่าย</button></div>
-              </div>
-              <div class="item expense-item">
-                <div><strong>หนี้ออมสิน</strong><em>กู้ออมสิน</em></div>
-                <div class="expense-controls"><div class="amount-red">6,214.34 ฿</div><button class="mini no" onclick="payFixedDebt('gsb')">บันทึกจ่าย</button></div>
-              </div>
+            <div class="card-title"><h2>เพิ่มรายการหนี้</h2><span class="pill">Debt</span></div>
+            <div class="form">
+              <div class="field"><label>ชื่อหนี้</label><input id="debtName" placeholder="เช่น หนี้บัตรเครดิต / หนี้อื่นๆ"></div>
+              <div class="row"><div class="field"><label>ยอดที่ต้องจ่ายต่อเดือน</label><input id="debtAmount" type="number" inputmode="decimal" step="0.01"></div><div class="field"><label>หักจากซอง</label><select id="debtEnvelope"></select></div></div>
+              <div class="row"><div class="field"><label>สถานะตั้งต้น</label><select id="debtStatus"><option value="due">ยังไม่จ่าย</option><option value="paid">จ่ายแล้ว</option><option value="paused">พักไว้</option></select></div><div class="field"><label>หมายเหตุ</label><input id="debtNote" placeholder="เช่น ครบกำหนดทุกวันที่ 5"></div></div>
+              <button class="btn yellow" onclick="addDebtItem()">+ เพิ่มหนี้</button>
             </div>
           </div>
-          <div class="card"><div class="card-title"><h2>แรงจูงใจ</h2></div><p class="small" style="line-height:1.8">ทุกเดือนที่จ่ายครบ = สัตว์เทพวิวัฒนาการ + Streak เพิ่ม 30 วัน<br>เมื่อหมดหนี้ เงินใช้ได้จะเพิ่มขึ้นประมาณ <b style="color:var(--green)">+1,600 บาท/เดือน</b></p></div>
-          <div class="card"><div class="card-title"><h2>โล่เกียรติยศ</h2></div><div class="badges" id="badges"></div></div>
+          <div class="card">
+            <div class="card-title"><h2>ประวัติการจ่ายหนี้</h2><span class="pill">รายเดือน</span></div>
+            <div class="debt-history" id="debtPaymentHistoryList"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -256,6 +253,6 @@
     </div>
   </div></div>
 
-<script src="app.js?v=20260622-10"></script>
+<script src="app.js?v=20260622-11"></script>
 </body>
 </html>
