@@ -170,7 +170,7 @@ function renderIncomeHistory(){
   list.innerHTML=Object.keys(groups).sort().reverse().map(key=>{
     const items=groups[key];
     const total=items.reduce((s,x)=>s+Number(x.amount||0),0);
-    return `<div class="income-month"><div class="income-month-head"><strong>${escapeHtml(incomeMonthLabel(key))}</strong><span>${fmt(total)} ฿</span></div>${items.map(item=>`<div class="income-row"><div><strong>${escapeHtml(incomeRoundLabel(item.round))}</strong><em>${escapeHtml(incomeDateText(item.date))}${item.note?' · '+escapeHtml(item.note):''}</em></div><b class="amount-green">+${fmt(item.amount)} ฿</b></div>`).join('')}</div>`;
+    return `<div class="income-month"><div class="income-month-head"><strong>${escapeHtml(incomeMonthLabel(key))}</strong><span>${fmt(total)} ฿</span></div>${items.map(item=>{ const id=escapeHtml(escapeJsArg(item.id)); return `<div class="income-row"><div><strong>${escapeHtml(incomeRoundLabel(item.round))}</strong><em>${escapeHtml(incomeDateText(item.date))}${item.note?' · '+escapeHtml(item.note):''}</em></div><div class="income-history-side"><b class="amount-green">+${fmt(item.amount)} ฿</b><div class="income-envelope-actions"><button class="mini ok" onclick="openIncomeEditor('${id}')">แก้ไข</button><button class="mini no" onclick="deleteIncomeRecord('${id}')">ลบ</button></div></div></div>`; }).join('')}</div>`;
   }).join('');
 }
 function renderIncomeEnvelopes(){
@@ -391,6 +391,41 @@ async function addIncome(){
   if(amount<=0)return showToast('กรอกยอดเงินก่อน');
   if(DEMO){applyDemoIncomeAllocation(amount,source);document.getElementById('incomeAmount').value='';document.getElementById('incomeSource').value='';renderAll();showToast('แบ่งเงินอัตโนมัติแล้ว (ทดลอง)');return;}
   try{ const r=await api({action:'addIncome',round:'month',amount,note:source||'รายรับเดือนนี้'}); DATA=r.data; document.getElementById('incomeAmount').value=''; document.getElementById('incomeSource').value=''; renderAll(); showToast('แบ่งเงินเข้าซองแล้ว'); }catch(err){showToast(err.message)} }
+function openIncomeEditor(id){
+  const item=(DATA.incomeHistory||[]).find(x=>String(x.id)===String(id));
+  if(!item)return showToast('ไม่พบรายการรายรับ');
+  document.getElementById('editIncomeId').value=item.id;
+  document.getElementById('editIncomeAmount').value=Number(item.amount||0);
+  document.getElementById('editIncomeSource').value=item.note||'';
+  document.getElementById('incomeModal').classList.add('show');
+}
+function closeIncomeEditor(){ document.getElementById('incomeModal').classList.remove('show'); }
+async function saveIncomeEditor(){
+  const id=document.getElementById('editIncomeId').value;
+  const amount=Number(document.getElementById('editIncomeAmount').value||0);
+  const note=document.getElementById('editIncomeSource').value.trim();
+  if(!id)return showToast('ไม่พบรายการรายรับ');
+  if(amount<=0)return showToast('กรอกยอดรายรับก่อน');
+  if(DEMO){
+    const item=(DATA.incomeHistory||[]).find(x=>String(x.id)===String(id));
+    if(!item)return showToast('ไม่พบรายการรายรับ');
+    item.amount=amount;item.note=note||'รายรับเดือนนี้';item.round=item.round||'month';
+    closeIncomeEditor();renderAll();showToast('แก้ไขรายรับแล้ว');return;
+  }
+  try{const r=await api({action:'updateIncome',id,amount,note});DATA=r.data;closeIncomeEditor();renderAll();showToast('แก้ไขรายรับแล้ว')}catch(err){showToast(err.message)}
+}
+async function deleteIncomeRecord(id){
+  const item=(DATA.incomeHistory||[]).find(x=>String(x.id)===String(id));
+  if(!item)return showToast('ไม่พบรายการรายรับ');
+  if(!confirm('ลบรายรับ '+fmt(item.amount)+' บาท?'))return;
+  if(DEMO){DATA.incomeHistory=DATA.incomeHistory.filter(x=>String(x.id)!==String(id));renderAll();showToast('ลบรายรับแล้ว');return;}
+  try{const r=await api({action:'deleteIncome',id});DATA=r.data;renderAll();showToast('ลบรายรับแล้ว')}catch(err){showToast(err.message)}
+}
+function deleteIncomeFromEditor(){
+  const id=document.getElementById('editIncomeId').value;
+  closeIncomeEditor();
+  deleteIncomeRecord(id);
+}
 async function addDebtItem(){
   const name=document.getElementById('debtName').value.trim();
   const amount=Number(document.getElementById('debtAmount').value||0);
