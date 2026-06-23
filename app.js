@@ -75,6 +75,20 @@ window.addEventListener('load', () => {
 function hideSetup(){ document.getElementById('setupModal').classList.remove('show'); }
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(window.toastTimer); window.toastTimer=setTimeout(()=>t.classList.remove('show'),2800); }
 function fmt(n){ return Number(n||0).toLocaleString('th-TH'); }
+function clampPct(n){ return Math.max(0,Math.min(100,n)); }
+function setText(id,value){ const el=document.getElementById(id); if(el)el.textContent=value; }
+function setCirclePct(id,pct){ const el=document.getElementById(id); if(el)el.style.setProperty('--p',clampPct(pct)+'%'); }
+function getMoneyOverview(){
+  const envs=DATA?.envelopes||[];
+  const totalBudget=envs.reduce((s,e)=>s+Number(e.budget||0),0);
+  const envelopeSpent=envs.reduce((s,e)=>s+Number(e.spent||0),0);
+  const envelopeRemaining=envs.reduce((s,e)=>s+Number(e.remaining||0),0);
+  const totalIncome=(DATA?.incomeHistory||[]).reduce((s,e)=>s+Number(e.amount||0),0);
+  const allSpent=Number(DATA?.totalSpentAll??envelopeSpent);
+  const totalRemaining=totalIncome?totalIncome-allSpent:envelopeRemaining;
+  const base=totalIncome||totalBudget||Math.abs(totalRemaining)+allSpent;
+  return {totalBudget,envelopeSpent,envelopeRemaining,totalIncome,allSpent,totalRemaining,base};
+}
 function normalizeDailyBudgetData(data){
   if(!data)return;
   data.settings=data.settings||{};
@@ -131,30 +145,33 @@ function renderAll(){ normalizeDailyBudgetData(DATA); renderDashboard(); renderI
 function renderDashboard(){
   const spent=Number(DATA.todaySpent||0), budget=Number(DATA.todayBudget||DAILY_BUDGET_DEFAULT), remain=Math.max(0,budget-spent), pct=budget?Math.max(0,Math.min(100,remain/budget*100)):0;
   const usable = DATA.envelopes.filter(e=>!e.locked && !['savings'].includes(e.group)).reduce((s,e)=>s+Number(e.remaining||0),0);
+  const overview=getMoneyOverview();
   document.getElementById('dailyRemain').textContent=fmt(remain); document.getElementById('dailySpent').textContent=fmt(spent); document.getElementById('dailyBudget').textContent=fmt(budget); document.getElementById('realAvailable').textContent=fmt(usable);
-  document.getElementById('totalSpentToday').textContent=fmt(DATA.totalSpentToday??spent);
-  document.getElementById('totalSpentMonth').textContent=fmt(DATA.totalSpentMonth??DATA.totalSpentToday??spent);
-  document.getElementById('totalSpentAll').textContent=fmt(DATA.totalSpentAll??DATA.totalSpentMonth??DATA.totalSpentToday??spent);
+  setText('totalSpentToday',fmt(DATA.totalSpentToday??spent));
+  setText('totalSpentMonth',fmt(DATA.totalSpentMonth??DATA.totalSpentToday??spent));
+  setText('totalSpentAll',fmt(overview.allSpent));
+  setText('dashboardRemainingAll',fmt(overview.totalRemaining));
+  setText('dashboardTotalIncome',fmt(overview.totalIncome));
+  setText('dashboardEnvelopeRemain',fmt(overview.envelopeRemaining));
+  const spentPct=overview.base?overview.allSpent/overview.base*100:0;
+  const remainingPct=overview.base?overview.totalRemaining/overview.base*100:0;
+  setCirclePct('dashboardSpentCircle',spentPct);
+  setCirclePct('dashboardRemainingCircle',remainingPct);
+  setText('dashboardSpentStatus',overview.base?(spentPct>=90?'ใช้เกินแผน':spentPct>=65?'เริ่มสูง':'ยังคุมได้'):'รอรายรับ');
+  setText('dashboardRemainingStatus',overview.base?(overview.totalRemaining<=0?'เงินติดลบ':remainingPct<=20?'เหลือน้อย':remainingPct<=50?'ต้องระวัง':'ยังปลอดภัย'):'รอรายรับ');
   const bar=document.getElementById('dailyBar'); bar.style.width=pct+'%'; bar.style.background=pct>50?'var(--green)':pct>20?'var(--yellow)':'var(--red)';
   const status=document.getElementById('dailyStatus'); status.textContent = remain<=0?'🔴 โควตาหมด':pct<=20?'🟠 ใกล้หมด':'🟢 คุมได้';
   const health=Number(DATA.settings.petHealth||100); const stages=[['🥚','ไข่แห่งความหวัง','เริ่มต้นใหม่ได้เสมอ'],['🐣','ลูกนกวินัย','ต้องดูแลมากขึ้น'],['🐲','มังกรทองแห่งวินัย','ยังแข็งแรงดี คุมงบต่อไป'],['🔥🐲','มังกรไฟแห่งความมั่งคั่ง','วินัยสุดยอดมาก']];
   const idx=health>=90?3:health>=65?2:health>=35?1:0; document.getElementById('petFace').textContent=stages[idx][0]; document.getElementById('petName').textContent=stages[idx][1]; document.getElementById('petMsg').textContent=health<35?'สัตว์เทพเริ่มป่วย เพราะใช้เงินเกินแผน':stages[idx][2]; document.getElementById('petBar').style.width=health+'%';
 }
 function renderIncomePage(){
-  const envs=DATA.envelopes||[];
-  const totalBudget=envs.reduce((s,e)=>s+Number(e.budget||0),0);
-  const totalSpent=envs.reduce((s,e)=>s+Number(e.spent||0),0);
-  const envelopeRemaining=envs.reduce((s,e)=>s+Number(e.remaining||0),0);
-  const totalIncome=(DATA.incomeHistory||[]).reduce((s,e)=>s+Number(e.amount||0),0);
-  const allSpent=Number(DATA.totalSpentAll??totalSpent);
-  const totalRemaining=totalIncome?totalIncome-allSpent:envelopeRemaining;
-  const circleBase=totalIncome||totalBudget;
-  const pct=circleBase?Math.max(0,Math.min(100,totalRemaining/circleBase*100)):0;
-  document.getElementById('incomeRemainingTotal').textContent=fmt(totalRemaining);
+  const overview=getMoneyOverview();
+  const pct=overview.base?clampPct(overview.totalRemaining/overview.base*100):0;
+  document.getElementById('incomeRemainingTotal').textContent=fmt(overview.totalRemaining);
   document.getElementById('incomeRemainCircle').style.setProperty('--p',pct+'%');
-  document.getElementById('incomeTotalSpent').textContent=fmt(allSpent);
-  document.getElementById('incomeUsableRemaining').textContent=fmt(totalIncome);
-  document.getElementById('incomeReservedMoney').textContent=fmt(envelopeRemaining);
+  document.getElementById('incomeTotalSpent').textContent=fmt(overview.allSpent);
+  document.getElementById('incomeUsableRemaining').textContent=fmt(overview.totalIncome);
+  document.getElementById('incomeReservedMoney').textContent=fmt(overview.envelopeRemaining);
   renderIncomeHistory();
   renderIncomeEnvelopes();
 }
