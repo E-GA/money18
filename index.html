@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>วินัยการเงิน by.E-ga </title>
+  <title>วินัยการเงิน 18 เดือน</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260622-12">
+  <link rel="stylesheet" href="styles.css?v=20260623-1">
 </head>
 <body>
   <div class="toast" id="toast"></div>
@@ -58,14 +58,32 @@
               <div style="flex:1"><h2 id="petName">สัตว์เทพแห่งวินัย</h2><p class="small" id="petMsg">ดูแลเงินให้ดี สัตว์เทพจะเติบโต</p><div class="bar" style="margin-top:10px"><i id="petBar"></i></div></div>
             </div>
           </div>
-          <div class="card">
-            <div class="card-title"><h2>รวมเงินที่ใช้ไปทั้งหมด</h2><span class="pill">ทุกซอง</span></div>
-            <div class="metrics">
-              <div class="metric"><b class="amount-red" id="totalSpentToday">0</b><span>วันนี้</span></div>
-              <div class="metric"><b class="amount-red" id="totalSpentMonth">0</b><span>เดือนนี้</span></div>
-              <div class="metric"><b class="amount-red" id="totalSpentAll">0</b><span>สะสมทั้งหมด</span></div>
+          <div class="dashboard-money-grid">
+            <div class="card dashboard-money-card">
+              <div class="card-title"><h2>รวมเงินที่ใช้ไปทั้งหมด</h2><span class="pill" id="dashboardSpentStatus">กำลังคำนวณ</span></div>
+              <div class="dashboard-circle-wrap">
+                <div class="money-circle status-circle spent-circle" id="dashboardSpentCircle">
+                  <div class="money-circle-inner"><span id="totalSpentAll">0</span><small>บาท</small></div>
+                </div>
+              </div>
+              <div class="dashboard-mini-metrics">
+                <div><span>วันนี้</span><b class="amount-red" id="totalSpentToday">0</b></div>
+                <div><span>เดือนนี้</span><b class="amount-red" id="totalSpentMonth">0</b></div>
+              </div>
             </div>
-            <p class="small" style="line-height:1.8;margin-top:12px">นับรวมรายจ่ายทุกซอง รวมรายการหนี้ที่บันทึกจ่ายแล้ว</p>
+
+            <div class="card dashboard-money-card">
+              <div class="card-title"><h2>เงินที่เหลืออยู่ทั้งหมด</h2><span class="pill" id="dashboardRemainingStatus">กำลังคำนวณ</span></div>
+              <div class="dashboard-circle-wrap">
+                <div class="money-circle status-circle remaining-circle" id="dashboardRemainingCircle">
+                  <div class="money-circle-inner"><span id="dashboardRemainingAll">0</span><small>บาท</small></div>
+                </div>
+              </div>
+              <div class="dashboard-mini-metrics">
+                <div><span>รายรับทั้งหมด</span><b id="dashboardTotalIncome">0</b></div>
+                <div><span>เหลือในซอง</span><b id="dashboardEnvelopeRemain">0</b></div>
+              </div>
+            </div>
           </div>
           <div class="card">
             <div class="card-title"><h2>เหตุการณ์ล่าสุด</h2><span class="pill">Log</span></div>
@@ -266,6 +284,6 @@
     </div>
   </div></div>
 
-<script src="app.js?v=20260622-12"></script>
+<script src="app.js?v=20260623-1"></script>
 </body>
 </html>
